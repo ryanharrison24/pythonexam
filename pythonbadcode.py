@@ -7,10 +7,12 @@ def validate_sequence(sequence, k):
     Returns True if the sequence looks good.
     """
     # sequence has to be longer than k or we cant get a next character
-    if len(sequence) < k:
+    # fixed this from < to <= because a sequence exactly equal to k
+    # has no character after the last kmer
+    if len(sequence) <= k:
         return False
     
-    # DNA should only have letters, so kick out anything with numbers
+    # DNA should only have letters. Remove anything with numbers
     for nucleotide in sequence:
         if nucleotide in '1234567890':
             return False
@@ -25,13 +27,15 @@ def update_kmer_count(kmer_data, kmer, next_char):
     If we have seen it, just increment the count.
     """
     # first time seeing this kmer so add it to the dict
+    # fixed this to start at 0 so when we add 1 below it becomes 1
+    # it was starting at 1 before so it was always one too high
     if kmer not in kmer_data:
-        kmer_data[kmer] = {'count': 1, 'next_chars': {}}
+        kmer_data[kmer] = {'count': 0, 'next_chars': {}}
     
-    # seen it before so just add to the count
+    # seen it before so add to count
     kmer_data[kmer]['count'] += 1
     
-    # same thing for the next character
+    # same for the next character
     if next_char not in kmer_data[kmer]['next_chars']:
         kmer_data[kmer]['next_chars'][next_char] = 0
     
@@ -40,16 +44,20 @@ def update_kmer_count(kmer_data, kmer, next_char):
 
     return kmer_data
 
-def count_kmers_with_context(sequence, k):
+def count_kmers_with_context(sequence, k, kmer_data=None):
     """
     Go through a sequence and find all kmers of length k.
     For each kmer also record what character comes after it.
+    Can take an existing kmer_data dict so multiple sequences
+    can be combined together.
     Returns a dictionary with all the kmer data.
     """
-    # empty dict to store everything
-    kmer_data = {}
+    # if no existing data was passed in, start fresh
+    # this lets us accumulate results across multiple sequences
+    if kmer_data is None:
+        kmer_data = {}
     
-    # loop through the sequence, stopping early enough that there  is always a character after the kmer
+    # loop through the sequence stopping early enough that there is always a character after the kmer
     for i in range(len(sequence) - k):
         
         # pull out the kmer at this spot
@@ -67,7 +75,7 @@ def write_results_to_file(kmer_data, output_filename):
     """
     Write all the kmer results out to a text file.
     Kmers are sorted alphabetically.
-    Each line shows the kmer, its total count, and what characters follow it.
+    Each line shows the kmer, its total count, and what characters follow it
     """
     # sort alphabetically so the output is easy to read
     sorted_kmers = sorted(kmer_data.keys())
@@ -75,7 +83,8 @@ def write_results_to_file(kmer_data, output_filename):
     with open(output_filename, 'w') as f:
         for kmer in sorted_kmers:
             
-            # grab the next characters for this kmer
+            # get the count and next characters for this kmer
+            count = kmer_data[kmer]['count']
             next_chars = kmer_data[kmer]['next_chars']
             
             # format it like "A:3 G:1 T:2"
@@ -84,8 +93,8 @@ def write_results_to_file(kmer_data, output_filename):
                 for char, freq in sorted(next_chars.items())
             )
             
-            # write the line to the file
-            f.write(f"{kmer} {next_char_str}\n")
+            # fixed this to also write the total count to the output
+            f.write(f"{kmer} {count} {next_char_str}\n")
 
 def main():
     """
@@ -95,12 +104,16 @@ def main():
     - the value of k
     - the output file to write results to
     """
-    # grab the arguments from the command line
+    # get the arguments from the command line
     sequence_file = sys.argv[1]
     k = int(sys.argv[2])
     output_file = sys.argv[3]
     
     print(f"Reading sequences from {sequence_file}...")
+
+    # fixed: kmer_data needs to be outside the loop so
+    # all sequences get combined instead of overwriting each other
+    kmer_data = {}
 
     # go through the input file line by line
     with open(sequence_file, 'r') as f:
@@ -114,11 +127,11 @@ def main():
                 print(f"  Warning: Skipping sequence")
                 continue
             
-            # count the kmers in this sequence
-            kmer_data = count_kmers_with_context(sequence, k) 
-            
-            # save results to file
-            write_results_to_file(kmer_data, output_file)
+            # fixed: pass kmer_data in so counts build up across all sequences
+            kmer_data = count_kmers_with_context(sequence, k, kmer_data)
+    
+    # fixed: write the file once after all sequences are done
+    write_results_to_file(kmer_data, output_file)
 
 if __name__ == '__main__':
     main()
