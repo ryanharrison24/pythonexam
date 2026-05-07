@@ -6,7 +6,7 @@ shows up and what character comes after it. You can set k to whatever length
 you want.
 
 ## How to run it
-python pythonbadcode.py sequences.txt 2 output.txt
+python pythonbadcode.py example_sequences.txt 2 output.txt
 
 sequences.txt is your input file with one DNA sequence per line
 2 is the value of k
